@@ -89,18 +89,40 @@ class Order extends Application {
         $this->data['order_num'] = $order_num;
         //FIXME
 
+        $this->data['total'] = number_format($this->Orders->total($order_num),2);
+
+        $items = $this->Orderitems->group($order_num);
+        foreach($items as $item)
+        {
+            $menuitem = $this->Menu->get($item->item);
+            $item->code=$menuitem->name;
+        }
+
+        $this->data['items'] = $items;
+        $this->data['okornot'] = $this->Orders->validate($order_num)  ? "" : "disabled";
+
         $this->render();
     }
 
     // proceed with checkout
     function commit($order_num) {
         //FIXME
+        if(!$this->Orders->validate($order_num))
+            redirect('/order/display_menu/'.$order_num);
+        $record = $this->Orders->get($order_num);
+        $record->date = date(DATE_ATOM);
+        $record->status = 'c';
+        $record->total = $this->Orders->total($order_num);
+        $this->Orders->update($record);
         redirect('/');
     }
 
     // cancel the order
     function cancel($order_num) {
-        //FIXME
+        $this->Orderitems->delete_some($order_num);
+        $record = $this->Orders->get($order_num);
+        $record->status = 'x';
+        $this->Orders->update($record);
         redirect('/');
     }
 
