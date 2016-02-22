@@ -17,20 +17,27 @@ class Order extends Application {
 
     // start a new order
     function neworder() {
-        //FIXME
+        $order_num = $this->Orders->highest()+1;
+        
+        $neworder = $this->Orders->create();
+        $neworder->num = $order_num;
+        $neworder->date = $date = date('Y-m-d H:i:s');
+        $neworder->status = 'a';
+        $neworder->total = 0;
+        $this->Orders->add($neworder);
 
         redirect('/order/display_menu/' . $order_num);
     }
 
     // add to an order
     function display_menu($order_num = null) {
-        if ($order_num == null)
+        if ($order_num == null){
             redirect('/order/neworder');
-
+        }
         $this->data['pagebody'] = 'show_menu';
         $this->data['order_num'] = $order_num;
         //FIXME
-
+        $this->data['title'] = 'Order #'.$order_num.':('.number_format($this->Orders->total($order_num),2).')';
         // Make the columns
         $this->data['meals'] = $this->make_column('m');
         $this->data['drinks'] = $this->make_column('d');
@@ -64,12 +71,14 @@ class Order extends Application {
     // make a menu ordering column
     function make_column($category) {
         //FIXME
-        return $items;
+         return $this->Menu->some('category',$category);
+        
     }
 
     // add an item to an order
     function add($order_num, $item) {
         //FIXME
+        $this->Orders->add_item($order_num, $item);
         redirect('/order/display_menu/' . $order_num);
     }
 
@@ -80,18 +89,40 @@ class Order extends Application {
         $this->data['order_num'] = $order_num;
         //FIXME
 
+        $this->data['total'] = number_format($this->Orders->total($order_num),2);
+
+        $items = $this->Orderitems->group($order_num);
+        foreach($items as $item)
+        {
+            $menuitem = $this->Menu->get($item->item);
+            $item->code=$menuitem->name;
+        }
+
+        $this->data['items'] = $items;
+        $this->data['okornot'] = $this->Orders->validate($order_num)  ? "" : "disabled";
+
         $this->render();
     }
 
     // proceed with checkout
     function commit($order_num) {
         //FIXME
+        if(!$this->Orders->validate($order_num))
+            redirect('/order/display_menu/'.$order_num);
+        $record = $this->Orders->get($order_num);
+        $record->date = date(DATE_ATOM);
+        $record->status = 'c';
+        $record->total = $this->Orders->total($order_num);
+        $this->Orders->update($record);
         redirect('/');
     }
 
     // cancel the order
     function cancel($order_num) {
-        //FIXME
+        $this->Orderitems->delete_some($order_num);
+        $record = $this->Orders->get($order_num);
+        $record->status = 'x';
+        $this->Orders->update($record);
         redirect('/');
     }
 
